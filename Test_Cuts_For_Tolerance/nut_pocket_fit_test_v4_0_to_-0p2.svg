@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="230mm" height="50mm" viewBox="0 0 230 50">
+<g id="CUT" stroke="red" fill="none" stroke-width="0.1">
+<rect x="0.5" y="0.5" width="229" height="49" />
+<rect x="8" y="10" width="4.6752" height="4.6752" />
+<circle cx="10.3376" cy="12.3376" r="1.2" />
+<rect x="28" y="10" width="4.655200000000001" height="4.655200000000001" />
+<circle cx="30.3276" cy="12.3276" r="1.2" />
+<rect x="48" y="10" width="4.6352" height="4.6352" />
+<circle cx="50.3176" cy="12.3176" r="1.2" />
+<rect x="68" y="10" width="4.615200000000001" height="4.615200000000001" />
+<circle cx="70.3076" cy="12.3076" r="1.2" />
+<rect x="88" y="10" width="4.5952" height="4.5952" />
+<circle cx="90.2976" cy="12.2976" r="1.2" />
+<rect x="108" y="10" width="4.575200000000001" height="4.575200000000001" />
+<circle cx="110.2876" cy="12.287600000000001" r="1.2" />
+<rect x="128" y="10" width="4.5552" height="4.5552" />
+<circle cx="130.2776" cy="12.2776" r="1.2" />
+<rect x="148" y="10" width="4.535200000000001" height="4.535200000000001" />
+<circle cx="150.2676" cy="12.2676" r="1.2" />
+<rect x="168" y="10" width="4.5152" height="4.5152" />
+<circle cx="170.2576" cy="12.2576" r="1.2" />
+<rect x="188" y="10" width="4.4952000000000005" height="4.4952000000000005" />
+<circle cx="190.2476" cy="12.2476" r="1.2" />
+<rect x="208" y="10" width="4.4752" height="4.4752" />
+<circle cx="210.2376" cy="12.2376" r="1.2" />
+</g>
+<g id="ENGRAVE" stroke="black" fill="none" stroke-width="0.1">
+<text x="10.3376" y="42" fill="black" font-family="Arial" font-size="2.8" text-anchor="middle" dominant-baseline="middle">+0.00</text>
+<text x="30.3276" y="42" fill="black" font-family="Arial" font-size="2.8" text-anchor="middle" dominant-baseline="middle">-0.02</text>
+<text x="50.3176" y="42" fill="black" font-family="Arial" font-size="2.8" text-anchor="middle" dominant-baseline="middle">-0.04</text>
+<text x="70.3076" y="42" fill="black" font-family="Arial" font-size="2.8" text-anchor="middle" dominant-baseline="middle">-0.06</text>
+<text x="90.2976" y="42" fill="black" font-family="Arial" font-size="2.8" text-anchor="middle" dominant-baseline="middle">-0.08</text>
+<text x="110.2876" y="42" fill="black" font-family="Arial" font-size="2.8" text-anchor="middle" dominant-baseline="middle">-0.10</text>
+<text x="130.2776" y="42" fill="black" font-family="Arial" font-size="2.8" text-anchor="middle" dominant-baseline="middle">-0.12</text>
+<text x="150.2676" y="42" fill="black" font-family="Arial" font-size="2.8" text-anchor="middle" dominant-baseline="middle">-0.14</text>
+<text x="170.2576" y="42" fill="black" font-family="Arial" font-size="2.8" text-anchor="middle" dominant-baseline="middle">-0.16</text>
+<text x="190.2476" y="42" fill="black" font-family="Arial" font-size="2.8" text-anchor="middle" dominant-baseline="middle">-0.18</text>
+<text x="210.2376" y="42" fill="black" font-family="Arial" font-size="2.8" text-anchor="middle" dominant-baseline="middle">-0.20</text>
+
+</g>
+</svg>
