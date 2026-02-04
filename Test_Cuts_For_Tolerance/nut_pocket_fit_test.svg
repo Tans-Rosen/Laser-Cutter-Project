@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="140mm" height="60mm" viewBox="0 0 140 60">
+<g id="CUT" stroke="red" fill="none" stroke-width="0.1">
+<rect x="0.5" y="0.5" width="139" height="59" />
+<rect x="8" y="12" width="4.6752" height="4.6752" />
+<circle cx="10.3376" cy="14.3376" r="1.2" />
+<rect x="30" y="12" width="4.7052000000000005" height="4.7052000000000005" />
+<circle cx="32.3526" cy="14.3526" r="1.2" />
+<rect x="52" y="12" width="4.7252" height="4.7252" />
+<circle cx="54.3626" cy="14.3626" r="1.2" />
+<rect x="74" y="12" width="4.7552" height="4.7552" />
+<circle cx="76.3776" cy="14.377600000000001" r="1.2" />
+<rect x="96" y="12" width="4.7752" height="4.7752" />
+<circle cx="98.3876" cy="14.387599999999999" r="1.2" />
+<rect x="118" y="12" width="4.825200000000001" height="4.825200000000001" />
+<circle cx="120.4126" cy="14.412600000000001" r="1.2" />
+</g>
+<g id="ENGRAVE" stroke="black" fill="none" stroke-width="0.1">
+<text x="10.3376" y="22.6752" fill="black" font-family="Arial" font-size="3.2" text-anchor="middle" dominant-baseline="middle">clr=0.00mm</text>
+<text x="32.3526" y="22.7052" fill="black" font-family="Arial" font-size="3.2" text-anchor="middle" dominant-baseline="middle">clr=0.03mm</text>
+<text x="54.3626" y="22.7252" fill="black" font-family="Arial" font-size="3.2" text-anchor="middle" dominant-baseline="middle">clr=0.05mm</text>
+<text x="76.3776" y="22.755200000000002" fill="black" font-family="Arial" font-size="3.2" text-anchor="middle" dominant-baseline="middle">clr=0.08mm</text>
+<text x="98.3876" y="22.775199999999998" fill="black" font-family="Arial" font-size="3.2" text-anchor="middle" dominant-baseline="middle">clr=0.10mm</text>
+<text x="120.4126" y="22.825200000000002" fill="black" font-family="Arial" font-size="3.2" text-anchor="middle" dominant-baseline="middle">clr=0.15mm</text>
+<text x="6" y="4" fill="black" font-family="Arial" font-size="3.0" text-anchor="start" dominant-baseline="middle">Nut pocket test | 3mm acrylic | kerf=0.10mm | nut_w=4.775mm</text>
+<text x="6" y="8" fill="black" font-family="Arial" font-size="2.8" text-anchor="start" dominant-baseline="middle">Pocket drawn=(nut_w+clr)-kerf. Hole drawn=2.50mm-kerf.</text>
+
+</g>
+</svg>
