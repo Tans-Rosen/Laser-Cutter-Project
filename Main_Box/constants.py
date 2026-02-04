@@ -52,6 +52,24 @@ NUT_POCKET_CLEARANCE_MM = 0.05
 SCREW_HOLE_DIAMETER_MM = 2.50
 
 # --------------------------
+# Tabs + wall bottom slots (placeholder tuning)
+# --------------------------
+# These parameters control the tabbed floor + matching slots on the bottom of each wall.
+# You can dial in TAB_SLOT_CLEARANCE_MM later using a small test strip.
+
+# Physical clearance added to the tab thickness when computing the SLOT width.
+# (Tabs are material thickness; slots are cutouts.)
+TAB_SLOT_CLEARANCE_MM = 0.10
+
+# Design intent: how wide each tab is along the edge.
+TAB_WIDTH_MM = 12.0
+
+# How many tabs per edge.
+# Long edges correspond to L_in/L_out direction (front/back), short edges correspond to W_in/W_out (left/right).
+TAB_COUNT_LONG_EDGE = 3
+TAB_COUNT_SHORT_EDGE = 2
+
+# --------------------------
 # Hardware (square nut) saved specs
 # --------------------------
 NUT_WIDTH_IN = 0.188
@@ -84,6 +102,25 @@ def nut_pocket_draw_w(kerf_mm: float) -> float:
 
 def screw_hole_draw_d(kerf_mm: float) -> float:
     return internal_cut_draw_dim(SCREW_HOLE_DIAMETER_MM, kerf_mm)
+
+# --------------------------
+# Tab / slot helpers (kerf-aware)
+# --------------------------
+def tab_slot_target_physical() -> float:
+    """Desired physical slot width for a floor tab (slot is an internal cutout)."""
+    return T_MM + TAB_SLOT_CLEARANCE_MM
+
+def tab_slot_draw_w(kerf_mm: float) -> float:
+    """Drawn slot width (kerf-aware) for the wall bottom slots."""
+    return internal_cut_draw_dim(tab_slot_target_physical(), kerf_mm)
+
+def wall_bottom_slot_draw_depth(kerf_mm: float) -> float:
+    """Drawn slot depth upward from the wall bottom edge."""
+    return internal_cut_draw_dim(T_MM, kerf_mm)
+
+def floor_tab_len_draw(kerf_mm: float) -> float:
+    """Drawn tab length protruding from the floor base outline."""
+    return external_cut_draw_dim(T_MM, kerf_mm)
 
 # Divider slot vertical geometry (standardized)
 DIVIDER_SLOT_TOP_CAP_MM = MIN_EDGE_MARGIN_MM
