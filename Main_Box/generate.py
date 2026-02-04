@@ -15,6 +15,7 @@ Tab system (new):
 """
 
 from typing import List, Dict, Optional, Tuple
+from fractal_sierpinski import Rect as FRect, sierpinski_paths_clipped_by_keepouts
 import constants as C
 
 # -------------------------
@@ -352,7 +353,31 @@ def _add_standard_engraving(pieces: List[dict], params: dict) -> None:
         if mode == "text":
             piece["engraves"].append(svg_text(cx, cy, wall_text[wall_key]))
         elif mode == "fractal":
-            piece["engraves"].append(svg_rect(safe_x, safe_y, safe_w, safe_h, stroke="black"))
+            # Build keepouts from CUT geometry so fractal avoids pockets/slots/holes.
+            # Note: these coordinates are already in the piece's local space.
+            pad = max(C.FRACTAL_KEEPOUT_PAD_MM, kerf)
+
+            keepouts = []
+            for c in piece["cuts"]:
+                if c["type"] == "rect":
+                    keepouts.append(FRect(c["x"] - pad, c["y"] - pad, c["w"] + 2*pad, c["h"] + 2*pad))
+                elif c["type"] == "circle":
+                    keepouts.append(FRect(c["cx"] - c["r"] - pad, c["cy"] - c["r"] - pad,
+                                            2*(c["r"] + pad), 2*(c["r"] + pad)))
+                # If you ever add path cutouts later, we ignore them for keepouts (conservative choice).
+
+            safe_rect = FRect(safe_x, safe_y, safe_w, safe_h)
+
+            # Generate Sierpinski triangles and drop any that intersect keepouts.
+            ds = sierpinski_paths_clipped_by_keepouts(
+                rect=safe_rect,
+                depth=C.FRACTAL_SIERPINSKI_DEPTH,
+                inset=C.FRACTAL_INSET_MM,
+                keepouts=keepouts,
+            )
+
+            for d in ds:
+                piece["engraves"].append(svg_path(d, stroke="black", stroke_width=C.FRACTAL_STROKE_WIDTH_MM))
 
 # -------------------------
 # SVG primitives + export
@@ -453,6 +478,14 @@ def to_svg(pieces: List[dict], placements: List[dict], sheet_w: float, sheet_h: 
                     "text-anchor": e["anchor"],
                     "dominant-baseline": "middle",
                 }, self_close=False, text=e["text"]))
+            elif e["type"] == "path":
+                out.append(el("path", {
+                    "d": e["d"],
+                    "fill": "none",
+                    "stroke": e["stroke"],
+                    "stroke-width": str(e["sw"]),
+                    "transform": f"translate({ox} {oy})",
+                }))
     out.append("</g>")
 
     out.append("</svg>")

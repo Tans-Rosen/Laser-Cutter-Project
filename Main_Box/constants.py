@@ -130,3 +130,19 @@ DIVIDER_SLOT_BOTTOM_MARGIN_MM = MIN_EDGE_MARGIN_MM
 TEXT_FONT_FAMILY = "Arial"
 TEXT_FONT_SIZE_MM = 6.0
 TEXT_ANCHOR = "middle"
+
+# --------------------------
+# Fractal engraving (Sierpinski)
+# --------------------------
+# Recursion depth: 4–6 is usually good for 3mm acrylic + typical laser spot sizes.
+FRACTAL_SIERPINSKI_DEPTH = 5
+
+# Extra inset INSIDE the engraving-safe region (in addition to ENGRAVE_MARGIN_MM)
+# so the pattern doesn’t touch the “safe box” edges.
+FRACTAL_INSET_MM = 2.0
+
+# Avoid engraving too close to cutouts (slots/pockets/holes). This is extra padding.
+FRACTAL_KEEPOUT_PAD_MM = 1.0
+
+# Stroke width for vector engraving lines
+FRACTAL_STROKE_WIDTH_MM = 0.12
