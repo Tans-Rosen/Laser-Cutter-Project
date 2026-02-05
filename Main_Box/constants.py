@@ -52,24 +52,6 @@ NUT_POCKET_CLEARANCE_MM = 0.05
 SCREW_HOLE_DIAMETER_MM = 2.50
 
 # --------------------------
-# Tabs + wall bottom slots (placeholder tuning)
-# --------------------------
-# These parameters control the tabbed floor + matching slots on the bottom of each wall.
-# You can dial in TAB_SLOT_CLEARANCE_MM later using a small test strip.
-
-# Physical clearance added to the tab thickness when computing the SLOT width.
-# (Tabs are material thickness; slots are cutouts.)
-TAB_SLOT_CLEARANCE_MM = 0.10
-
-# Design intent: how wide each tab is along the edge.
-TAB_WIDTH_MM = 12.0
-
-# How many tabs per edge.
-# Long edges correspond to L_in/L_out direction (front/back), short edges correspond to W_in/W_out (left/right).
-TAB_COUNT_LONG_EDGE = 3
-TAB_COUNT_SHORT_EDGE = 2
-
-# --------------------------
 # Hardware (square nut) saved specs
 # --------------------------
 NUT_WIDTH_IN = 0.188
@@ -104,23 +86,39 @@ def screw_hole_draw_d(kerf_mm: float) -> float:
     return internal_cut_draw_dim(SCREW_HOLE_DIAMETER_MM, kerf_mm)
 
 # --------------------------
-# Tab / slot helpers (kerf-aware)
+# Corner finger-joint placeholders (box-style)
 # --------------------------
-def tab_slot_target_physical() -> float:
-    """Desired physical slot width for a floor tab (slot is an internal cutout)."""
-    return T_MM + TAB_SLOT_CLEARANCE_MM
+# These control the small “foam-mat style” corner joints between adjacent faces.
+# Tune JOINT_CLEARANCE_MM later using test strips.
+JOINT_CLEARANCE_MM = 0.10  # general tab/slot clearance (physical)
 
-def tab_slot_draw_w(kerf_mm: float) -> float:
-    """Drawn slot width (kerf-aware) for the wall bottom slots."""
-    return internal_cut_draw_dim(tab_slot_target_physical(), kerf_mm)
+# How far male tabs protrude beyond the nominal panel outline (physical). Usually = thickness.
+FINGER_DEPTH_MM = T_MM
 
-def wall_bottom_slot_draw_depth(kerf_mm: float) -> float:
-    """Drawn slot depth upward from the wall bottom edge."""
-    return internal_cut_draw_dim(T_MM, kerf_mm)
+# Width of each finger feature along an edge (physical).
+FINGER_WIDTH_MM = 12.0
 
-def floor_tab_len_draw(kerf_mm: float) -> float:
-    """Drawn tab length protruding from the floor base outline."""
-    return external_cut_draw_dim(T_MM, kerf_mm)
+def finger_depth_draw(kerf_mm: float) -> float:
+    # External protrusion: add kerf so physical ends up right.
+    return external_cut_draw_dim(FINGER_DEPTH_MM, kerf_mm)
+
+def finger_slot_depth_draw(kerf_mm: float) -> float:
+    # Internal indentation depth: subtract kerf so physical ends up right.
+    return internal_cut_draw_dim(FINGER_DEPTH_MM, kerf_mm)
+
+def finger_slot_width_draw(kerf_mm: float) -> float:
+    # Internal slot width: thickness + clearance, then kerf-aware.
+    return internal_cut_draw_dim(T_MM + JOINT_CLEARANCE_MM, kerf_mm)
+
+def finger_width_draw(kerf_mm: float) -> float:
+    # Feature width is along the perimeter; keep as design intent.
+    return FINGER_WIDTH_MM
+
+# --------------------------
+# T-slot captive nut placeholders
+# --------------------------
+# T-slot stem: screw shank can slide in; cross captures square nut (anti-rotation).
+T_SLOT_STEM_LENGTH_MM = 10.0
 
 # Divider slot vertical geometry (standardized)
 DIVIDER_SLOT_TOP_CAP_MM = MIN_EDGE_MARGIN_MM
@@ -130,19 +128,3 @@ DIVIDER_SLOT_BOTTOM_MARGIN_MM = MIN_EDGE_MARGIN_MM
 TEXT_FONT_FAMILY = "Arial"
 TEXT_FONT_SIZE_MM = 6.0
 TEXT_ANCHOR = "middle"
-
-# --------------------------
-# Fractal engraving (Sierpinski)
-# --------------------------
-# Recursion depth: 4–6 is usually good for 3mm acrylic + typical laser spot sizes.
-FRACTAL_SIERPINSKI_DEPTH = 5
-
-# Extra inset INSIDE the engraving-safe region (in addition to ENGRAVE_MARGIN_MM)
-# so the pattern doesn’t touch the “safe box” edges.
-FRACTAL_INSET_MM = 2.0
-
-# Avoid engraving too close to cutouts (slots/pockets/holes). This is extra padding.
-FRACTAL_KEEPOUT_PAD_MM = 1.0
-
-# Stroke width for vector engraving lines
-FRACTAL_STROKE_WIDTH_MM = 0.12

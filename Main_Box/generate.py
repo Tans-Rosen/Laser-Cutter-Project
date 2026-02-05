@@ -1,21 +1,10 @@
-"""generate.py — Simple mode
-
-What this generates:
-- Wall rectangles (with internal cutouts)
-- Floor OUTLINE as a tabbed perimeter (SVG path) + optional internal cutouts
-
+"""
+generate.py — Simple mode
 Kerf-aware internal features (slots/holes/pockets).
 Divider convention A implemented: slots in FRONT/BACK walls based on dividerPos from left inner wall.
-
-Tab system (new):
-- Floor has outward tabs on all 4 edges.
-- Each wall has matching bottom slots.
-- All fit tuning is controlled in constants.py:
-  - TAB_SLOT_CLEARANCE_MM, TAB_WIDTH_MM, TAB_COUNT_LONG_EDGE, TAB_COUNT_SHORT_EDGE
 """
 
-from typing import List, Dict, Optional, Tuple
-from fractal_sierpinski import Rect as FRect, sierpinski_paths_clipped_by_keepouts
+from typing import List, Dict, Optional
 import constants as C
 
 # -------------------------
@@ -65,16 +54,14 @@ def build_pieces(params: dict) -> List[dict]:
     pieces.append(_new_piece("wall_left",  W_out, H_out))
     pieces.append(_new_piece("wall_right", W_out, H_out))
 
-    # Floor bounding box includes tab protrusions on all sides.
-    tab_len_draw = C.floor_tab_len_draw(kerf)
-    floor_w = L_in + 2 * tab_len_draw
-    floor_h = W_in + 2 * tab_len_draw
-    pieces.append(_new_piece("floor", floor_w, floor_h))
+    # IMPORTANT: floor uses outer footprint so wall↔floor corner joints can line up.
+    pieces.append(_new_piece("floor",      L_out,  W_out))
 
     for i in range(params["num_dividers"]):
         pieces.append(_new_piece(f"divider_{i+1}", L_in, H_out - t))  # divider runs along LENGTH
 
-    _add_floor_tabs_and_wall_bottom_slots(pieces, params)
+    _add_corner_finger_joints(pieces, params)
+
     _add_divider_slots_convention_A(pieces, params)
     _add_captive_hardware_placeholders(pieces, params)
     _add_standard_engraving(pieces, params)
@@ -82,7 +69,6 @@ def build_pieces(params: dict) -> List[dict]:
     return pieces
 
 def _new_piece(name: str, w: float, h: float) -> dict:
-    # outline: either a rect (default) or a path (used by the floor tabs)
     return {"name": name, "w": w, "h": h, "outline": {"type": "rect"}, "cuts": [], "engraves": []}
 
 def _find_piece(pieces: List[dict], name: str) -> dict:
@@ -92,159 +78,155 @@ def _find_piece(pieces: List[dict], name: str) -> dict:
     raise KeyError(f"Missing piece: {name}")
 
 # -------------------------
-# Floor tabs + wall bottom slots
+# Corner finger joints (minimal, box-style)
 # -------------------------
-def _tab_centers(edge_len: float, count: int, margin: float) -> List[float]:
-    """Return `count` tab centers spanning edge_len, staying inside [margin, edge_len - margin]."""
-    if count <= 0:
-        return []
-    if count == 1:
-        return [edge_len / 2]
+def _corner_positions(edge_len: float, feature_w: float, margin: float) -> tuple[float, float]:
+    """Return two feature center positions near the ends of an edge."""
+    bottom = margin + feature_w / 2
+    top = edge_len - (margin + feature_w / 2)
+    return bottom, top
 
-    usable = edge_len - 2 * margin
-    if usable <= 0:
-        # Degenerate: just place them at the midpoint to avoid crashes.
-        return [edge_len / 2 for _ in range(count)]
+def _wall_outline_with_corner_joints(w: float, h: float, kerf: float) -> dict:
+    """
+    Wall outline:
+    - Top edge: plain (no lid).
+    - Left vertical edge: two FEMALE pockets (indent inward).
+    - Right vertical edge: two MALE tabs (protrude outward).
+    """
+    m = C.MIN_EDGE_MARGIN_MM
+    fw = C.finger_width_draw(kerf)
+    tab_d = C.finger_depth_draw(kerf)
+    slot_d = C.finger_slot_depth_draw(kerf)
 
-    step = usable / (count + 1)
-    return [margin + step * (i + 1) for i in range(count)]
+    y1, y2 = _corner_positions(h, fw, m)
 
+    # Convert centers to [start,end] for each finger
+    a1, b1 = y1 - fw / 2, y1 + fw / 2
+    a2, b2 = y2 - fw / 2, y2 + fw / 2
 
-def _tab_intervals(edge_len: float, centers: List[float], tab_w: float, margin: float) -> List[Tuple[float, float]]:
-    """Convert centers -> [start,end] intervals, clamped to avoid corners and each other."""
-    intervals: List[Tuple[float, float]] = []
-    half = tab_w / 2
-    for c in centers:
-        start = max(margin, c - half)
-        end = min(edge_len - margin, c + half)
-        if end > start:
-            intervals.append((start, end))
-    intervals.sort()
-    return intervals
+    # Build path clockwise starting at bottom-left (0,h)
+    x0, x1 = 0.0, w
+    d = []
+    d.append(f"M {x0:.4f} {h:.4f}")
+    d.append(f"L {x1:.4f} {h:.4f}")
 
+    # RIGHT edge upward with 2 outward tabs
+    d.append(f"L {x1:.4f} {a1:.4f}")
+    d.append(f"L {x1 + tab_d:.4f} {a1:.4f}")
+    d.append(f"L {x1 + tab_d:.4f} {b1:.4f}")
+    d.append(f"L {x1:.4f} {b1:.4f}")
 
-def _floor_tabbed_outline_path(base_x: float, base_y: float, base_w: float, base_h: float,
-                              tab_len: float, tab_w: float,
-                              n_long: int, n_short: int, margin: float) -> str:
-    """Build an SVG path for a rectangle with outward tabs on all 4 edges."""
+    d.append(f"L {x1:.4f} {a2:.4f}")
+    d.append(f"L {x1 + tab_d:.4f} {a2:.4f}")
+    d.append(f"L {x1 + tab_d:.4f} {b2:.4f}")
+    d.append(f"L {x1:.4f} {b2:.4f}")
 
-    # Along the top/bottom edges (length direction)
-    top_centers = _tab_centers(base_w, n_long, margin)
-    top_tabs = _tab_intervals(base_w, top_centers, tab_w, margin)
-    # Along the left/right edges (width direction)
-    side_centers = _tab_centers(base_h, n_short, margin)
-    side_tabs = _tab_intervals(base_h, side_centers, tab_w, margin)
+    d.append(f"L {x1:.4f} {0.0:.4f}")
+    d.append(f"L {x0:.4f} {0.0:.4f}")
 
-    x0, y0 = base_x, base_y
-    x1, y1 = base_x + base_w, base_y + base_h
+    # LEFT edge downward with 2 inward pockets
+    d.append(f"L {x0:.4f} {b2:.4f}")
+    d.append(f"L {x0 + slot_d:.4f} {b2:.4f}")
+    d.append(f"L {x0 + slot_d:.4f} {a2:.4f}")
+    d.append(f"L {x0:.4f} {a2:.4f}")
 
-    d: List[str] = []
-    d.append(f"M {x0:.4f} {y0:.4f}")
+    d.append(f"L {x0:.4f} {b1:.4f}")
+    d.append(f"L {x0 + slot_d:.4f} {b1:.4f}")
+    d.append(f"L {x0 + slot_d:.4f} {a1:.4f}")
+    d.append(f"L {x0:.4f} {a1:.4f}")
 
-    # TOP edge: (x0,y0) -> (x1,y0), tabs go upward to y0 - tab_len
-    cur_x = x0
-    for a, b in top_tabs:
-        xa = x0 + a
-        xb = x0 + b
-        d.append(f"L {xa:.4f} {y0:.4f}")
-        d.append(f"L {xa:.4f} {y0 - tab_len:.4f}")
-        d.append(f"L {xb:.4f} {y0 - tab_len:.4f}")
-        d.append(f"L {xb:.4f} {y0:.4f}")
-        cur_x = xb
-    d.append(f"L {x1:.4f} {y0:.4f}")
-
-    # RIGHT edge: (x1,y0) -> (x1,y1), tabs go right to x1 + tab_len
-    for a, b in side_tabs:
-        ya = y0 + a
-        yb = y0 + b
-        d.append(f"L {x1:.4f} {ya:.4f}")
-        d.append(f"L {x1 + tab_len:.4f} {ya:.4f}")
-        d.append(f"L {x1 + tab_len:.4f} {yb:.4f}")
-        d.append(f"L {x1:.4f} {yb:.4f}")
-    d.append(f"L {x1:.4f} {y1:.4f}")
-
-    # BOTTOM edge: (x1,y1) -> (x0,y1), tabs go downward to y1 + tab_len
-    for a, b in reversed(top_tabs):
-        xa = x0 + a
-        xb = x0 + b
-        d.append(f"L {xb:.4f} {y1:.4f}")
-        d.append(f"L {xb:.4f} {y1 + tab_len:.4f}")
-        d.append(f"L {xa:.4f} {y1 + tab_len:.4f}")
-        d.append(f"L {xa:.4f} {y1:.4f}")
-    d.append(f"L {x0:.4f} {y1:.4f}")
-
-    # LEFT edge: (x0,y1) -> (x0,y0), tabs go left to x0 - tab_len
-    for a, b in reversed(side_tabs):
-        ya = y0 + a
-        yb = y0 + b
-        d.append(f"L {x0:.4f} {yb:.4f}")
-        d.append(f"L {x0 - tab_len:.4f} {yb:.4f}")
-        d.append(f"L {x0 - tab_len:.4f} {ya:.4f}")
-        d.append(f"L {x0:.4f} {ya:.4f}")
-    d.append(f"L {x0:.4f} {y0:.4f}")
+    d.append(f"L {x0:.4f} {h:.4f}")
     d.append("Z")
 
-    return " ".join(d)
+    return {"type": "path", "d": " ".join(d), "stroke": "red", "sw": 0.1}
 
+def _floor_outline_with_corner_pockets(w: float, h: float, kerf: float) -> dict:
+    """
+    Floor outline (outer footprint):
+    - Rectangle w x h
+    - Two FEMALE pockets near each corner on each edge, so each wall can have
+      a bottom indexing feature near each end that inserts into the floor.
+    """
+    m = C.MIN_EDGE_MARGIN_MM
+    fw = C.finger_width_draw(kerf)
+    pocket_d = C.finger_slot_depth_draw(kerf)
 
-def _add_floor_tabs_and_wall_bottom_slots(pieces: List[dict], params: dict) -> None:
-    """Adds a tabbed floor outline (path) and matching bottom slots to each wall."""
+    xL0 = m
+    xL1 = m + fw
+    xR1 = w - m
+    xR0 = w - m - fw
+
+    yT0 = m
+    yT1 = m + fw
+    yB1 = h - m
+    yB0 = h - m - fw
+
+    d = []
+    d.append(f"M {0.0:.4f} {0.0:.4f}")
+
+    # Top edge pockets
+    d.append(f"L {xL0:.4f} {0.0:.4f}")
+    d.append(f"L {xL0:.4f} {pocket_d:.4f}")
+    d.append(f"L {xL1:.4f} {pocket_d:.4f}")
+    d.append(f"L {xL1:.4f} {0.0:.4f}")
+
+    d.append(f"L {xR0:.4f} {0.0:.4f}")
+    d.append(f"L {xR0:.4f} {pocket_d:.4f}")
+    d.append(f"L {xR1:.4f} {pocket_d:.4f}")
+    d.append(f"L {xR1:.4f} {0.0:.4f}")
+    d.append(f"L {w:.4f} {0.0:.4f}")
+
+    # Right edge pockets
+    d.append(f"L {w:.4f} {yT0:.4f}")
+    d.append(f"L {w - pocket_d:.4f} {yT0:.4f}")
+    d.append(f"L {w - pocket_d:.4f} {yT1:.4f}")
+    d.append(f"L {w:.4f} {yT1:.4f}")
+
+    d.append(f"L {w:.4f} {yB0:.4f}")
+    d.append(f"L {w - pocket_d:.4f} {yB0:.4f}")
+    d.append(f"L {w - pocket_d:.4f} {yB1:.4f}")
+    d.append(f"L {w:.4f} {yB1:.4f}")
+    d.append(f"L {w:.4f} {h:.4f}")
+
+    # Bottom edge pockets
+    d.append(f"L {xR1:.4f} {h:.4f}")
+    d.append(f"L {xR1:.4f} {h - pocket_d:.4f}")
+    d.append(f"L {xR0:.4f} {h - pocket_d:.4f}")
+    d.append(f"L {xR0:.4f} {h:.4f}")
+
+    d.append(f"L {xL1:.4f} {h:.4f}")
+    d.append(f"L {xL1:.4f} {h - pocket_d:.4f}")
+    d.append(f"L {xL0:.4f} {h - pocket_d:.4f}")
+    d.append(f"L {xL0:.4f} {h:.4f}")
+    d.append(f"L {0.0:.4f} {h:.4f}")
+
+    # Left edge pockets
+    d.append(f"L {0.0:.4f} {yB1:.4f}")
+    d.append(f"L {pocket_d:.4f} {yB1:.4f}")
+    d.append(f"L {pocket_d:.4f} {yB0:.4f}")
+    d.append(f"L {0.0:.4f} {yB0:.4f}")
+
+    d.append(f"L {0.0:.4f} {yT1:.4f}")
+    d.append(f"L {pocket_d:.4f} {yT1:.4f}")
+    d.append(f"L {pocket_d:.4f} {yT0:.4f}")
+    d.append(f"L {0.0:.4f} {yT0:.4f}")
+
+    d.append(f"L {0.0:.4f} {0.0:.4f}")
+    d.append("Z")
+
+    return {"type": "path", "d": " ".join(d), "stroke": "red", "sw": 0.1}
+
+def _add_corner_finger_joints(pieces: List[dict], params: dict) -> None:
     kerf = params["kerf"]
-    t = params["t"]
 
-    tab_len_draw = C.floor_tab_len_draw(kerf)
-    tab_w = C.TAB_WIDTH_MM
-    slot_w_draw = C.tab_slot_draw_w(kerf)
-    slot_depth_draw = C.wall_bottom_slot_draw_depth(kerf)
+    for wall_name in ("wall_front", "wall_back", "wall_left", "wall_right"):
+        wall = _find_piece(pieces, wall_name)
+        wall["outline"] = _wall_outline_with_corner_joints(wall["w"], wall["h"], kerf)
 
     floor = _find_piece(pieces, "floor")
+    floor["outline"] = _floor_outline_with_corner_pockets(floor["w"], floor["h"], kerf)
 
-    # Base floor rectangle (the portion inside the walls) is L_in x W_in,
-    # centered inside the floor bounding box with a tab_len_draw margin.
-    base_x = tab_len_draw
-    base_y = tab_len_draw
-    base_w = params["L_in"]
-    base_h = params["W_in"]
-
-    # Create floor outline path
-    # Use a conservative margin so we don't generate tabs too close to corners.
-    edge_margin = C.MIN_EDGE_MARGIN_MM
-    d = _floor_tabbed_outline_path(
-        base_x=base_x,
-        base_y=base_y,
-        base_w=base_w,
-        base_h=base_h,
-        tab_len=tab_len_draw,
-        tab_w=tab_w,
-        n_long=C.TAB_COUNT_LONG_EDGE,
-        n_short=C.TAB_COUNT_SHORT_EDGE,
-        margin=edge_margin,
-    )
-    floor["outline"] = svg_path(d, stroke="red")
-
-    # Add matching slots along the bottom edge of each wall.
-    # NOTE: Wall coordinate convention in this file is unchanged (x=0..w for the panel).
-    # Slots are placed relative to the wall's full width, inside a margin.
-    for wall_name in ("wall_front", "wall_back"):
-        wall = _find_piece(pieces, wall_name)
-        centers = _tab_centers(wall["w"], C.TAB_COUNT_LONG_EDGE, edge_margin)
-        intervals = _tab_intervals(wall["w"], centers, slot_w_draw, edge_margin)
-        for a, b in intervals:
-            x = a
-            w = b - a
-            y = wall["h"] - slot_depth_draw
-            wall["cuts"].append(svg_rect(x, y, w, slot_depth_draw, stroke="red"))
-
-    for wall_name in ("wall_left", "wall_right"):
-        wall = _find_piece(pieces, wall_name)
-        centers = _tab_centers(wall["w"], C.TAB_COUNT_SHORT_EDGE, edge_margin)
-        intervals = _tab_intervals(wall["w"], centers, slot_w_draw, edge_margin)
-        for a, b in intervals:
-            x = a
-            w = b - a
-            y = wall["h"] - slot_depth_draw
-            wall["cuts"].append(svg_rect(x, y, w, slot_depth_draw, stroke="red"))
-
+# -------------------------
 # Divider slots (Convention A)
 # -------------------------
 def _add_divider_slots_convention_A(pieces: List[dict], params: dict) -> None:
@@ -268,14 +250,6 @@ def _add_divider_slots_convention_A(pieces: List[dict], params: dict) -> None:
     back  = _find_piece(pieces, "wall_back")
     floor = _find_piece(pieces, "floor")
 
-    # Floor base origin is offset by the floor tab margin.
-    tab_len_draw = C.floor_tab_len_draw(kerf)
-
-    # Map dividerPos (from left inner wall) to x on FRONT/BACK panels.
-    # Standard choice:
-    # - wall panel local x=0 is aligned with left INNER wall line.
-    # This keeps the mental model consistent with dividerPos definition.
-    # If you later change coordinate convention, adjust this mapping only.
     for p_mm in params["divider_positions"]:
         x = p_mm
         y = bottom_margin
@@ -284,41 +258,64 @@ def _add_divider_slots_convention_A(pieces: List[dict], params: dict) -> None:
         front["cuts"].append(svg_rect(x, y, slot_w_draw, slot_h, stroke="red"))
         back["cuts"].append(svg_rect(x, y, slot_w_draw, slot_h, stroke="red"))
 
-        # optional floor slot (short slot for stiffness)
-        floor_slot_h_draw = C.internal_cut_draw_dim(params["t"], kerf)  # through slot height == thickness
+        # floor slots must be offset by wall thickness (inner origin is at x=t)
+        floor_slot_h_draw = C.internal_cut_draw_dim(params["t"], kerf)
         fy = (floor["h"] - floor_slot_h_draw) / 2
-        floor["cuts"].append(svg_rect(tab_len_draw + x, fy, slot_w_draw, floor_slot_h_draw, stroke="red"))
+        floor["cuts"].append(svg_rect(params["t"] + x, fy, slot_w_draw, floor_slot_h_draw, stroke="red"))
 
 # -------------------------
-# Captive nut anti-spin (placeholder geometry)
+# Captive nut + screw channel (T-slot)
 # -------------------------
 def _add_captive_hardware_placeholders(pieces: List[dict], params: dict) -> None:
     """
-    You said: nut must not spin or jiggle loose.
-    A square pocket prevents spin; clearance controls jiggle.
+    T-slot captive nut + screw channel.
 
-    This skeleton places hole + square pocket centered together.
-    Later, when you implement real internal tabs, you'll move the pocket
-    into the tab region. The sizing here is already kerf-aware.
+    - Cross: square pocket capturing the square nut (anti-rotation).
+    - Stem: rectangular slot leading to the edge; screw shank aligns along the stem.
+
+    This is still placeholder placement; the sizes are kerf-aware and clearance-ready.
     """
     kerf = params["kerf"]
     hole_d_draw = C.screw_hole_draw_d(kerf)
+
     pocket_w_draw = C.nut_pocket_draw_w(kerf)
+    stem_w_draw = hole_d_draw
+    stem_len_draw = C.internal_cut_draw_dim(C.T_SLOT_STEM_LENGTH_MM, kerf)
 
     H = params["H_out"]
     ys = [frac * H for frac in (0.25, 0.75)]
 
     for wall_name in ("wall_front", "wall_back", "wall_left", "wall_right"):
         wall = _find_piece(pieces, wall_name)
-        x_left = C.MIN_EDGE_MARGIN_MM
-        x_right = wall["w"] - C.MIN_EDGE_MARGIN_MM
 
-        for y in ys:
-            wall["cuts"].append(svg_circle(x_left, y, hole_d_draw/2, stroke="red"))
-            wall["cuts"].append(svg_circle(x_right, y, hole_d_draw/2, stroke="red"))
+        for side in ("left", "right"):
+            edge_x = 0.0 if side == "left" else wall["w"]
+            x_center = (stem_len_draw + pocket_w_draw / 2) if side == "left" else (wall["w"] - (stem_len_draw + pocket_w_draw / 2))
 
-            wall["cuts"].append(svg_rect(x_left - pocket_w_draw/2, y - pocket_w_draw/2, pocket_w_draw, pocket_w_draw, stroke="red"))
-            wall["cuts"].append(svg_rect(x_right - pocket_w_draw/2, y - pocket_w_draw/2, pocket_w_draw, pocket_w_draw, stroke="red"))
+            for y in ys:
+                wall["cuts"].append(svg_rect(
+                    x_center - pocket_w_draw / 2,
+                    y - pocket_w_draw / 2,
+                    pocket_w_draw,
+                    pocket_w_draw,
+                    stroke="red",
+                ))
+
+                if side == "left":
+                    x0, x1 = edge_x, x_center - pocket_w_draw / 2
+                else:
+                    x0, x1 = x_center + pocket_w_draw / 2, edge_x
+                stem_x = min(x0, x1)
+                stem_w = abs(x1 - x0)
+                wall["cuts"].append(svg_rect(
+                    stem_x,
+                    y - stem_w_draw / 2,
+                    stem_w,
+                    stem_w_draw,
+                    stroke="red",
+                ))
+
+                wall["cuts"].append(svg_circle(x_center, y, hole_d_draw / 2, stroke="red"))
 
 # -------------------------
 # Engraving (standardized)
@@ -353,31 +350,7 @@ def _add_standard_engraving(pieces: List[dict], params: dict) -> None:
         if mode == "text":
             piece["engraves"].append(svg_text(cx, cy, wall_text[wall_key]))
         elif mode == "fractal":
-            # Build keepouts from CUT geometry so fractal avoids pockets/slots/holes.
-            # Note: these coordinates are already in the piece's local space.
-            pad = max(C.FRACTAL_KEEPOUT_PAD_MM, kerf)
-
-            keepouts = []
-            for c in piece["cuts"]:
-                if c["type"] == "rect":
-                    keepouts.append(FRect(c["x"] - pad, c["y"] - pad, c["w"] + 2*pad, c["h"] + 2*pad))
-                elif c["type"] == "circle":
-                    keepouts.append(FRect(c["cx"] - c["r"] - pad, c["cy"] - c["r"] - pad,
-                                            2*(c["r"] + pad), 2*(c["r"] + pad)))
-                # If you ever add path cutouts later, we ignore them for keepouts (conservative choice).
-
-            safe_rect = FRect(safe_x, safe_y, safe_w, safe_h)
-
-            # Generate Sierpinski triangles and drop any that intersect keepouts.
-            ds = sierpinski_paths_clipped_by_keepouts(
-                rect=safe_rect,
-                depth=C.FRACTAL_SIERPINSKI_DEPTH,
-                inset=C.FRACTAL_INSET_MM,
-                keepouts=keepouts,
-            )
-
-            for d in ds:
-                piece["engraves"].append(svg_path(d, stroke="black", stroke_width=C.FRACTAL_STROKE_WIDTH_MM))
+            piece["engraves"].append(svg_rect(safe_x, safe_y, safe_w, safe_h, stroke="black"))
 
 # -------------------------
 # SVG primitives + export
@@ -417,7 +390,6 @@ def to_svg(pieces: List[dict], placements: List[dict], sheet_w: float, sheet_h: 
         pl = place_by_name[piece["name"]]
         ox, oy = pl["x"], pl["y"]
 
-        # Outline (either a rect or a path)
         outline = piece.get("outline", {"type": "rect"})
         if outline.get("type") == "path":
             out.append(el("path", {
@@ -478,14 +450,6 @@ def to_svg(pieces: List[dict], placements: List[dict], sheet_w: float, sheet_h: 
                     "text-anchor": e["anchor"],
                     "dominant-baseline": "middle",
                 }, self_close=False, text=e["text"]))
-            elif e["type"] == "path":
-                out.append(el("path", {
-                    "d": e["d"],
-                    "fill": "none",
-                    "stroke": e["stroke"],
-                    "stroke-width": str(e["sw"]),
-                    "transform": f"translate({ox} {oy})",
-                }))
     out.append("</g>")
 
     out.append("</svg>")
