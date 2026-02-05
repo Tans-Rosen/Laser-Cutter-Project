@@ -42,11 +42,11 @@ DIVIDER_MIN_GAP_MM = max(2 * T_MM, 6.0)
 # Fit tuning (PHYSICAL targets)
 # --------------------------
 # Divider slots: slip fit for 3mm divider. Start at +0.08mm and tune from test strip.
-DIVIDER_SLOT_CLEARANCE_MM = 0.08
+DIVIDER_SLOT_CLEARANCE_MM = -0.10
 
 # Nut pocket: should NOT spin; should have minimal wiggle.
 # Start at +0.05mm and tune from test strip.
-NUT_POCKET_CLEARANCE_MM = 0.05
+NUT_POCKET_CLEARANCE_MM = -0.08
 
 # Screw hole diameter (clearance). Start at 2.50mm and tune if needed.
 SCREW_HOLE_DIAMETER_MM = 2.50
