@@ -1,8 +1,11 @@
 """
 validate.py — Simple mode
 Validates raw user inputs and returns derived params in mm.
-Divider convention A: dividerPos measured from LEFT inner wall (width axis),
-dividers run along LENGTH, slots go in FRONT/BACK.
+
+Divider convention (updated):
+- divider positions are measured from the LEFT INNER wall along the INTERIOR LENGTH axis.
+- dividers run FRONT→BACK (span the interior width).
+- divider slots are cut into FRONT/BACK walls and the FLOOR.
 """
 
 from typing import Dict, List
@@ -71,10 +74,12 @@ def validate_inputs(inputs: dict) -> dict:
     if num_dividers == 2 and not (divider_positions[0] < divider_positions[1]):
         raise ValueError("For 2 dividers, dividerPos1 must be < dividerPos2.")
 
+    # Divider spacing constraints (along interior LENGTH)
     min_gap = C.DIVIDER_MIN_GAP_MM
     for p in divider_positions:
-        if p < min_gap or p > (W_in - min_gap):
+        if p < min_gap or p > (L_in - min_gap):
             raise ValueError("Divider too close to a wall (violates minimum gap).")
+
     if num_dividers == 2 and (divider_positions[1] - divider_positions[0]) < min_gap:
         raise ValueError("Dividers too close to each other (violates minimum gap).")
 
@@ -86,5 +91,6 @@ def validate_inputs(inputs: dict) -> dict:
         "wall_mode": wall_mode,
         "wall_text": wall_text,
         "num_dividers": num_dividers,
-        "divider_positions": divider_positions,  # measured from left inner wall along WIDTH
+        # measured from left inner wall along INTERIOR LENGTH
+        "divider_positions": divider_positions,
     }
