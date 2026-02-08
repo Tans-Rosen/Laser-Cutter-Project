@@ -25,8 +25,11 @@ NUT_DEPTH = 1.5
 NUT_WIDTH_ALONG_EDGE = 4.7
 SHAFT_WIDTH = 2.2
 HOLE_DIAMETER = 2.2
-HOLE_OFFSET_FROM_EDGE = 2.5  # mm from edge, within 3mm zone for strength
+HOLE_OFFSET_FROM_EDGE = 1.5  # mm from edge (center of 3mm zone)
 SHAFT_EXTENSION_PAST_NUT = 2.5  # shaft extends this far past the nut slot
+
+# Bottom piece: extend length so pockets align with LEFT/RIGHT wall tabs
+BOTTOM_EXTENSION_SIDE_MM = 3  # 3mm extra on left and right (6mm total)
 
 # Divider slots
 DIVIDER_SLOT_WIDTH = 2.7
@@ -198,35 +201,43 @@ def build_back_wall_outline(length, height):
 
 
 def build_bottom_outline(length, width):
-    """Build BOTTOM with 8 pockets on all 4 edges (pockets indent inward to receive wall tabs)."""
-    l25, l75 = finger_pocket_positions(length)
+    """Build BOTTOM with 8 pockets on all 4 edges. Length is extended by 6mm (3mm each side)
+    so left/right pockets align with LEFT and RIGHT wall tabs; pockets/holes keep same
+    distance from edges."""
+    shift = BOTTOM_EXTENSION_SIDE_MM
+    extended_length = length + 2 * shift
+    # Pocket centers along length: same spacing as inner span, shifted right by shift
+    l25 = shift + length * 0.25
+    l75 = shift + length * 0.75
     w25, w75 = finger_pocket_positions(width)
     half_pocket = POCKET_WIDTH / 2
 
-    # Pockets indent INWARD (into the piece). Trace clockwise from top-left.
+    # Trace clockwise from top-left. Left edge at 0, right at extended_length.
     path = f"M0,0 "
-    # Top edge: pockets at 25% and 75% - indent downward (positive y)
+    # Top: 3mm strip then pockets at l25, l75
+    path += f"L{shift},0 "
     path += f"L{l25 - half_pocket},0 "
     path += f"L{l25 - half_pocket},{POCKET_DEPTH} L{l25 + half_pocket},{POCKET_DEPTH} L{l25 + half_pocket},0 "
     path += f"L{l75 - half_pocket},0 "
     path += f"L{l75 - half_pocket},{POCKET_DEPTH} L{l75 + half_pocket},{POCKET_DEPTH} L{l75 + half_pocket},0 "
-    path += f"L{length},0 "
+    path += f"L{extended_length},0 "
 
-    # Right edge: pockets indent leftward (negative x)
-    path += f"L{length},{w25 - half_pocket} "
-    path += f"L{length - POCKET_DEPTH},{w25 - half_pocket} L{length - POCKET_DEPTH},{w25 + half_pocket} L{length},{w25 + half_pocket} "
-    path += f"L{length},{w75 - half_pocket} "
-    path += f"L{length - POCKET_DEPTH},{w75 - half_pocket} L{length - POCKET_DEPTH},{w75 + half_pocket} L{length},{w75 + half_pocket} "
-    path += f"L{length},{width} "
+    # Right edge: pockets indent leftward
+    path += f"L{extended_length},{w25 - half_pocket} "
+    path += f"L{extended_length - POCKET_DEPTH},{w25 - half_pocket} L{extended_length - POCKET_DEPTH},{w25 + half_pocket} L{extended_length},{w25 + half_pocket} "
+    path += f"L{extended_length},{w75 - half_pocket} "
+    path += f"L{extended_length - POCKET_DEPTH},{w75 - half_pocket} L{extended_length - POCKET_DEPTH},{w75 + half_pocket} L{extended_length},{w75 + half_pocket} "
+    path += f"L{extended_length},{width} "
 
-    # Bottom edge: pockets indent upward (negative y)
+    # Bottom edge: pockets indent upward
     path += f"L{l75 + half_pocket},{width} "
     path += f"L{l75 + half_pocket},{width - POCKET_DEPTH} L{l75 - half_pocket},{width - POCKET_DEPTH} L{l75 - half_pocket},{width} "
     path += f"L{l25 + half_pocket},{width} "
     path += f"L{l25 + half_pocket},{width - POCKET_DEPTH} L{l25 - half_pocket},{width - POCKET_DEPTH} L{l25 - half_pocket},{width} "
+    path += f"L{shift},{width} "
     path += f"L0,{width} "
 
-    # Left edge: pockets indent rightward (positive x)
+    # Left edge: pockets indent rightward (same distance from edge 0)
     path += f"L0,{w75 + half_pocket} "
     path += f"L{POCKET_DEPTH},{w75 + half_pocket} L{POCKET_DEPTH},{w75 - half_pocket} L0,{w75 - half_pocket} "
     path += f"L0,{w25 + half_pocket} "
@@ -329,7 +340,8 @@ def build_all_components(params):
     pieces.append(('right', build_right_wall_outline(width, height), (0, 0, width, height + TAB_PROTRUSION), 'right', params))
     pieces.append(('front', build_front_wall_outline(length, height), (-TAB_PROTRUSION, 0, length + TAB_PROTRUSION, height + TAB_PROTRUSION), 'front', params))
     pieces.append(('back', build_back_wall_outline(length, height), (-TAB_PROTRUSION, 0, length + TAB_PROTRUSION, height + TAB_PROTRUSION), 'back', params))
-    pieces.append(('bottom', build_bottom_outline(length, width), (0, 0, length, width), 'bottom', params))
+    bottom_length = length + 2 * BOTTOM_EXTENSION_SIDE_MM
+    pieces.append(('bottom', build_bottom_outline(length, width), (0, 0, bottom_length, width), 'bottom', params))
 
     div_height = height - DIVIDER_SLOT_OFFSET
     for i in range(div_count):
@@ -410,7 +422,7 @@ def generate_svg(packed_pieces, total_bounds):
 
         # T-slots, divider slots, engravings per piece type
         if ptype == 'left':
-            # Holes within 3mm of edge but inset 2.5mm for strength
+            # Holes centered in first 3mm of left/right edges
             add_tslot_hole(g_tslot, px + HOLE_OFFSET_FROM_EDGE, py + height / 2)
             add_tslot_hole(g_tslot, px + width - HOLE_OFFSET_FROM_EDGE, py + height / 2)
             add_tslot_nut_shaft(ET.SubElement(g_tslot, 'g', {'transform': transform}), width / 2, height, 'bottom')
@@ -483,13 +495,14 @@ def generate_svg(packed_pieces, total_bounds):
                 add_divider_slot(g_divslot, px + x2, py, DIVIDER_SLOT_WIDTH, slot_h)
 
         elif ptype == 'bottom':
-            # Holes centered on each edge, 2.5mm from edge (within piece bounds 0,0 to length,width)
-            half_l = length / 2
+            # Bottom length is extended by 6mm (3mm each side); holes keep same distance from edges
+            bottom_length = length + 2 * BOTTOM_EXTENSION_SIDE_MM
+            half_l = bottom_length / 2  # center of extended piece
             half_w = width / 2
             add_tslot_hole(g_tslot, px + half_l, py + HOLE_OFFSET_FROM_EDGE)
             add_tslot_hole(g_tslot, px + half_l, py + width - HOLE_OFFSET_FROM_EDGE)
             add_tslot_hole(g_tslot, px + HOLE_OFFSET_FROM_EDGE, py + half_w)
-            add_tslot_hole(g_tslot, px + length - HOLE_OFFSET_FROM_EDGE, py + half_w)
+            add_tslot_hole(g_tslot, px + bottom_length - HOLE_OFFSET_FROM_EDGE, py + half_w)
 
     return svg
 
