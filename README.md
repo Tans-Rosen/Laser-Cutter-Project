@@ -2,6 +2,12 @@
 
 A Python program that generates SVG files for laser cutting a pencil holder from acrylic.
 
+## Example Output
+
+![Example pencil holders](https://github.com/user-attachments/assets/example-pencil-holders.png)
+
+The image above showcases two example configurations produced directly from this script. These pencil holders were laser-cut from the generated SVG files without any manual modifications—demonstrating the script's production-ready output. With customizable dimensions, text engravings, fractal patterns, and divider configurations, these examples represent just a fraction of the nearly endless design possibilities this generator offers.
+
 ## Usage
 
 ```bash
